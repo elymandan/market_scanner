@@ -1,0 +1,11 @@
+version: '3.8'
+services:
+  scanner:
+    build: .
+    command: ["sh", "-c", "python -m src.main"]
+    volumes:
+      - ./:/app
+    environment:
+      - ENV=production
+    ports:
+      - "8000:8000" # webhook server port
