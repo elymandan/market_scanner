@@ -1,11 +1,19 @@
-version: '3.8'
+version: "3.9"
+
 services:
   scanner:
     build: .
-    command: ["sh", "-c", "python -m src.main"]
-    volumes:
-      - ./:/app
+    container_name: market_scanner
+    # Added Google DNS to fix "Could not resolve host" errors
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    env_file:
+      - ./.env
     environment:
-      - ENV=production
+      ENV: production
     ports:
-      - "8000:8000" # webhook server port
+      - "8000:8000"
+    volumes:
+      - ./:/app:cached
+    restart: unless-stopped

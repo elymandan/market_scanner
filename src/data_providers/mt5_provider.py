@@ -1,10 +1,7 @@
 # MetaTrader5 provider (live). Requires MetaTrader5 terminal installed on host.
-# Use PROVIDER="mt5" in config to use this.
 import MetaTrader5 as mt5
 import pandas as pd
-import time
-from typing import Optional
-from datetime import datetime, timezone
+from typing import Optional, List
 
 TIMEFRAME_MAP = {
     "4h": mt5.TIMEFRAME_H4,
@@ -30,3 +27,12 @@ def fetch_ohlcv(symbol: str, timeframe: str, count: int = 500) -> Optional[pd.Da
     df = df.rename(columns={'time': 'Date', 'open':'Open','high':'High','low':'Low','close':'Close','tick_volume':'Volume'})
     df = df.set_index('Date')[['Open','High','Low','Close','Volume']]
     return df
+
+def list_symbols() -> List[str]:
+    """
+    Return available symbols from MT5 terminal as a list of names.
+    """
+    syms = mt5.symbols_get()
+    if not syms:
+        return []
+    return [s.name for s in syms]

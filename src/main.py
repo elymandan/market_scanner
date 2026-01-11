@@ -1,40 +1,33 @@
-# Entrypoint: initializes DB, optionally MT5, and launches webhook + scanner
+# Entrypoint: initializes DB, optionally MT5 initialization, and launches webhook + scanner
 import asyncio
-import uvicorn
 from . import config
 from .db import init_db
-from .webhook.webhook import app
-import os
+import uvicorn
+from .webhook import webhook
+from .scanner_worker import periodic_scanner_loop
 
-from . import scanner_worker
-from .data_providers import mt5_provider
+def maybe_init_mt5():
+    if config.PROVIDER == "mt5":
+        try:
+            from .data_providers import mt5_provider
+            ok = mt5_provider.initialize()
+            if not ok:
+                print("[main] MT5 initialization returned False. Ensure terminal available.")
+            else:
+                print("[main] MT5 initialized successfully.")
+        except Exception as e:
+            print("[main] MT5 initialize/import failed:", e)
 
 def start_webhook():
-    # Run uvicorn in background thread via asyncio create_task
-    config_uvicorn = {
-        "app": "src.webhook.webhook:app",
-        "host": config.WEBHOOK_HOST,
-        "port": config.WEBHOOK_PORT,
-        "log_level": "info",
-        "reload": False
-    }
-    # Use uvicorn.run in a thread to keep it simple for this example
-    uvicorn.run("src.webhook.webhook:app", host=config.WEBHOOK_HOST, port=config.WEBHOOK_PORT)
+    uvicorn.run("src.webhook.webhook:app", host=config.WEBHOOK_HOST, port=config.WEBHOOK_PORT, log_level="info")
 
 def main():
-    print("Initializing DB...")
+    print("[main] Initializing DB...")
     init_db()
-    if config.PROVIDER == "mt5":
-        print("Initializing MT5...")
-        ok = mt5_provider.initialize()
-        if not ok:
-            print("MT5 initialization failed. Check terminal & path.")
-    # Run webhook server and scanner loop concurrently
+    maybe_init_mt5()
     loop = asyncio.get_event_loop()
     try:
-        # start scanner as background task
-        loop.create_task(scanner_worker.periodic_scanner_loop())
-        # start webhook server (blocking) - run in thread via run_in_executor
+        loop.create_task(periodic_scanner_loop())
         loop.run_in_executor(None, start_webhook)
         loop.run_forever()
     except KeyboardInterrupt:
